@@ -1,0 +1,178 @@
+---
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE)
+x <- c("ggplot2", "dplyr","ggpubr","car")
+lapply(x, require, character.only = TRUE)
+```
+
+## Regression Analysis For MotorTrend
+
+The dataframe mtcars contains 32 observations on 11 variabels like miles/gallon(MPG), number of cylinders etc.
+
+Our main focus in the study is how the Transmission type( automatic or manual) affects the miles per gallon. define a relationship between mileage and transmission type.
+
+### Loading and the Data
+```{r Load and Clean}
+data("mtcars")
+mtcars <- mtcars%>%
+  mutate(am = as.factor (am))
+levels(mtcars$am)<- c("Automatic","Manual")
+
+summary(mtcars)
+```
+### Exploratory Data Anlaysis
+The Displacement ,Mileage, HorsePower, axle ratio, quator mile time, weight are all the continous variables.
+
+And other varibles are categorical
+
+And our only intrest is to find relationship between Transmission type and Mileage.
+
+we  will analyse the continous variables sactter plot with mileage 
+```{r pairPlots}
+ mtcars.con <- mtcars[c("mpg","disp","hp","drat","wt",   "qsec")]
+my_cols <- c("#00AFBB", "#E7B800", "#FC4E07")  
+pairs(mtcars.con ,pch = 19, cex =0.5, col = my_cols[mtcars$am], lower.panel = NULL, font.labels = 2, cex.labels = 1.3)
+
+```
+
+````{r exploartory analysis}
+g <- ggplot(data = mtcars, aes(x = disp, y = mpg, color = am))
+g <- g + geom_point( alpha = 0.5)
+g <- g + labs(x = "Displacement in cubic inches", y = "Miles/(US) gallon", title = "Milege Vs Displacement", color = "Transmission Type")
+
+g1 <- ggplot(data = mtcars, aes(x = hp, y = mpg, color = am))
+g1 <- g1 + geom_point( alpha = 0.5)
+g1 <- g1 + labs(x = "Gross horse Power", y = "Miles/(US) gallon", title = "Milege Vs Gross HorsePower", color = "Type")
+
+g2 <- ggplot(data = mtcars, aes(x = wt, y = mpg, color = am))
+g2 <- g2 + geom_point( alpha = 0.5)
+g2 <- g2 + labs(x = "Weight in 1000 lbs", y = "Miles/(US) gallon", title = "Milege Vs Weight",color = "Type")
+
+g3 <- ggplot(data = mtcars, aes(x = drat, y = mpg ,color = am))
+g3 <- g3 + geom_point( alpha = 0.5 )
+g3 <- g3 + labs(x = "Rear axle ratio", y = "Miles/(US) gallon", title = "Milege Vs Rear axle ratio", color = "Type")
+
+
+g4 <- ggplot(data = mtcars, aes(x = qsec, y = mpg ,color = am))
+g4 <- g4 + geom_point( alpha = 0.5 )
+g4 <- g4 + labs(x = "Quator Mile Time", y = "Miles/(US) gallon", title = "Milege Vs Quator Mile Time", color = "Type")
+
+ggarrange(g,g1,g2, g3,g4, ncol = 2, nrow = 3, 
+          common.legend = TRUE, legend = "bottom")
+
+````
+```{r correlation}
+corr_disp<- cor(mtcars$disp , mtcars$mpg)
+corr_hp<- cor(mtcars$hp , mtcars$mpg)
+corr_wt<- cor(mtcars$wt , mtcars$mpg)
+corr_drat <-cor(mtcars$drat , mtcars$mpg)
+corr_qsec<- cor(mtcars$qsec , mtcars$mpg)
+```
+
+** The Correlation values of the different relationship **
+
+- The Plot shows a negative Trend with correlation values of 
+__`r round(corr_disp,3)`__ between Displacement and Mileage.
+
+- The Plot shows a negative Trend with correlation values of 
+__`r round(corr_hp,3)`__ between HosrePower and Mileage.
+
+- The Plot shows a negative Trend with correlation values of 
+__`r round(corr_wt,3)`__ between weight and Mileage.
+
+- The Plot shows a postive Trend with correlation values of 
+__`r round(corr_drat,3)`__ between rear axle ratio and Mileage.
+
+- The Plot shows a postive Trend with correlation values of 
+__`r round(corr_qsec,3)`__ between quator mile time and Mileage.
+
+The Dependency of MPG value  on Transmission Type is explained by the Bar and Violin Plots.
+```{r}
+l<- labs(x = "Transmission Type", y = "Mile Per Gallon", fill = "Transmission Type")
+box <- ggplot(data = mtcars, aes(am , mpg, fill = am))
+box_plot <- box+geom_boxplot()+l
+violin <- box+geom_violin(color = "black", size = 1)+l
+
+ggarrange(box_plot, violin, ncol = 2, common.legend = TRUE, legend = "bottom")
+```
+
+The Box plot reveals that there is a huge differnce in mean mpg for the automatic and manual Transmission
+
+> Since, Our question of analysis is relationship between the Mileage with respect to transmission. And Displacement and Weight Shows high correlation with Mileage.
+
+> The Regression analysis of Mileage as outcome and Weight,Mileage and Type as Predictors.
+
+
+### Model of Regression
+
+
+First to test the Transmission Type is really a categorical value to determine the MPG.
+
+```{r t-test}
+t.test(mtcars$mpg~mtcars$am,conf.level=0.95)
+
+```
+
+
+The T-test rejects the null Hypothesis, the difference between Transmission on MPG is 0.
+
+
+```{r regModel}
+mdl <- lm(mpg~disp+wt+am , data = mtcars)
+coef_mdl <- coef(mdl)
+rsquare_val <- summary(mdl)$adj.r.squared
+
+```
+- The adjusted R square value is __`r rsquare_val`__
+
+Feature  | coeffcient value
+---------|-----------------
+Intercept| `r coef_mdl[[1]]`
+displacement| `r coef_mdl[[2]]`
+Weight| `r coef_mdl[[3]]`
+manual transmission| `r coef_mdl[[4]]`
+
+
+
+### Model Selection 
+
+
+We can step method to as R to choose the best model itself
+```{r}
+
+bestmodel = step(lm(mpg~. , data = mtcars), trace = 0)
+coef_bdl <- coef(bestmodel)
+rsquare_bval <- summary(bestmodel)$adj.r.squared
+vif_model <- vif(bestmodel)
+```
+
+
+- The BestModel that fits perfectly for MPG as outcome is with predictors Weight,Quator Mile time and Transmission Type.
+
+- The adjusted R square value for best model is __`r rsquare_bval`__
+
+Feature  | coeffcient value| VIF
+---------|-----------------|--------
+Weight| `r coef_bdl[[2]]`|`r vif_model[[1]]`
+Quator mile Time| `r coef_bdl[[3]]`|`r vif_model[[2]]`
+manual transmission| `r coef_bdl[[4]]`|`r vif_model[[3]]`
+
+
+
+The Residual Plots for the Fitted values and inputs 
+
+```{r}
+par(mfrow = c(2,2))
+plot(bestmodel)
+```
+
+
+### Conclusion
+
+Based on the previous analysis, we can say that on average manual transmission is better than automatic transmission by 2.9 mpg but also transmission type is not the only factor accounting for MPG, weight, and acceleration (1/4 mile time) also needs to be considered.
